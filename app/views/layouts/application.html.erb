@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>EADrop</title>
+  <%= stylesheet_link_tag    "application", media: "all", "data-turbolinks-track" => true %>
+  <%= javascript_include_tag "application", "data-turbolinks-track" => true %>
+  <%= csrf_meta_tags %>
+  <style>
+      #droppable_file {
+          border: gray solid 1em;
+          padding: 2em;
+      }
+      #droppable_file.hover {
+          background-color: indianred;
+      }
+  </style>
+</head>
+<body>
+
+<div>
+  <div id="droppable_file">
+    ここにファイルをドラッグ
+  </div>
+  <input type="file" id="selectable_file">
+
+  <%#
+  <textarea id="sender_local" rows="20" cols="20"></textarea>
+  <textarea id="sender_remote" rows="20" cols="20"></textarea>
+  <button id="sender_button1">sender1</button>
+  <button id="sender_button2">sender2</button>
+  <textarea id="receiver_local" rows="20" cols="20"></textarea>
+  <textarea id="receiver_remote" rows="20" cols="20"></textarea>
+  <button id="receiver_button">receiver</button>
+  <textarea id="candidate_text" rows="20" cols="20"></textarea>
+  <button id="candidate_button">receiver</button>
+
+  <button id="channel_button">channel send</button>
+  %>
+  <button id="sender_button">sender</button>
+  <button id="receiver_button">receiver</button>
+</div>
+
+</body>
+</html>
