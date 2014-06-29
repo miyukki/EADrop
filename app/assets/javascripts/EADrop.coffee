@@ -103,6 +103,246 @@ class FileTransfer
 
 window.FileTransfer = FileTransfer
 
+
+
+#
+# FileSender
+#
+# update_sender_candidate
+# update_sender_offer
+class FileSender
+  constructor: (@target_client_id, @file, @websocket) ->
+    @websocket.bind "update_receiver_candidate", @updateReceiverCandidate
+    @websocket.bind "update_receiver_answer", @updateReceiverAnswer
+    @sendWebSocketMessage "update_fileinfo", file
+
+    @connection = new RTCPeerConnection peerConnectionConfig, peerDataConnectionConfig
+    @connection.onnegotiationneeded = @onRTCNegotiationNeeded
+    @connection.onicecandidate = @onRTCIceCandidate
+    @connection.ondatachannel = @onRTCDataChannel
+
+    @attachDataChannel @connection.createDataChannel "channel", reliable: true
+
+    @connection.createOffer (description) =>
+      console.log "OnCreateOffer 1"
+      @connection.setLocalDescription description, =>
+        console.log "OnSetLocalDescription 2"
+        @sendWebSocketMessage "update_sender_offer", description
+
+  updateReceiverCandidate: (data) =>
+    return if data.target isnt @getOwnClientId()
+    @connection.addIceCandidate new RTCIceCandidate(data.body)
+
+  updateReceiverAnswer: (data) =>
+    return if data.target isnt @getOwnClientId()
+    @connection.setRemoteDescription new RTCSessionDescription(data.body)
+
+  attachDataChannel: (@channel) =>
+    @channel.onopen = @onRTCChannelOpen
+    @channel.onmessage = @onRTCChannelMessage
+
+  getOwnClientId: ->
+    @websocket._conn.connection_id
+
+  sendWebSocketMessage: (event_name, body) ->
+    message = sender: @getOwnClientId(), target: @target_client_id, body: body
+    @websocket.trigger event_name, message
+
+  onRTCIceCandidate: (event) =>
+    console.log "onRTCIceCandidate"
+    if event.candidate
+      @sendWebSocketMessage "update_sender_candidate", event.candidate
+
+  onRTCDataChannel: (event) =>
+    console.log "onRTCDataChannel"
+    @attachDataChannel event.channel
+
+  onRTCNegotiationNeeded: (event) =>
+    console.log "onRTCNegotiationNeeded"
+
+  onRTCChannelOpen: =>
+    console.log "onRTCChannelOpen"
+    @sendFile()
+
+  onRTCChannelMessage: (message) =>
+    console.log "onRTCChannelMessage"
+
+#  setRTCMessageListener: (listener) ->
+#    @rtcMessageListener = listener
+
+  sendRTCMessage: (event) ->
+    @channel.send event
+
+  ## FILES
+  sendFile: =>
+    reader = new FileReader
+    reader.onload = (event) =>
+      delay = 10
+      charSlice = 10000
+      terminator = "\n"
+      data = event.target.result
+      dataSent = 0
+      intervalID = 0
+
+      if not $('#loader_outer').is(':visible')
+        $("#loader_outer").fadeIn(500)
+
+      intervalID = setInterval =>
+        slideEndIndex = dataSent + charSlice
+        if slideEndIndex > data.length
+          slideEndIndex = data.length
+        @sendRTCMessage data.slice(dataSent, slideEndIndex)
+        dataSent = slideEndIndex
+
+        percent = dataSent/data.length
+        $("#loader").css("width", percent + "%")
+
+        if dataSent + 1 >= data.length
+          $("#loader_outer").fadeOut(1000)
+          console.log "送信完了"
+          dataSent = 0
+          dataBuffer = ""
+          @sendRTCMessage "\n"
+          clearInterval intervalID
+      , delay
+    reader.readAsDataURL @file
+
+#
+# FileReceiver
+#
+# update_sender_candidate
+# update_sender_offer
+class FileReceiver
+  constructor: (@target_client_id, @websocket, @isDownloadMode = true) ->
+    @websocket.bind "update_sender_candidate", @updateSenderCandidate
+    @websocket.bind "update_sender_offer", @updateSenderOffer
+    @websocket.bind "update_fileinfo", @updateFileinfo
+
+    @connection = new RTCPeerConnection peerConnectionConfig, peerDataConnectionConfig
+    @connection.onnegotiationneeded = @onRTCNegotiationNeeded
+    @connection.onicecandidate = @onRTCIceCandidate
+    @connection.ondatachannel = @onRTCDataChannel
+
+  updateSenderCandidate: (data) =>
+    return if data.target isnt @getOwnClientId()
+    @connection.addIceCandidate new RTCIceCandidate(data.body)
+
+  updateSenderOffer: (data) =>
+    return if data.target isnt @getOwnClientId()
+    @connection.setRemoteDescription new RTCSessionDescription(data.body)
+    @connection.createAnswer (answer) =>
+      @connection.setLocalDescription answer, =>
+        @sendWebSocketMessage "update_receiver_answer", answer
+
+  updateFileinfo: (data) =>
+    @file = data.body
+
+  attachDataChannel: (@channel) =>
+    @channel.onopen = @onRTCChannelOpen
+    @channel.onmessage = @onRTCChannelMessage
+
+  getOwnClientId: ->
+    @websocket._conn.connection_id
+
+  sendWebSocketMessage: (event_name, body) ->
+    message = sender: @getOwnClientId(), target: @target_client_id, body: body
+    @websocket.trigger event_name, message
+
+  onRTCIceCandidate: (event) =>
+    console.log "onRTCIceCandidate"
+    if event.candidate
+      @sendWebSocketMessage "update_receiver_candidate", event.candidate
+
+  onRTCDataChannel: (event) =>
+    console.log "onRTCDataChannel"
+    @attachDataChannel event.channel
+
+  onRTCNegotiationNeeded: (event) =>
+    console.log "onRTCNegotiationNeeded"
+
+  onRTCChannelOpen: =>
+    console.log "onRTCChannelOpen"
+
+  onRTCChannelMessage: (event) =>
+    console.log "onRTCChannelMessage"
+    @receiveFile event
+
+  sendRTCMessage: (event) ->
+    @channel.send event
+
+  ## FILES
+  receiveFile: (event) =>
+    @dataBuffer ?= ""
+
+    percent = @dataBuffer.length/(@file.size * 1.33)
+    if not $('#loader_outer').is(':visible')
+      $("#loader_outer").fadeIn(500)
+    $("#loader").css("width", percent + "%")
+
+    if event.data == "\n"
+      console.log "おわり"
+      console.log @dataBuffer
+
+      $("#loader_outer").fadeOut(1000)
+
+      if @isDownloadMode
+        @downloadFile()
+      else
+        window.open @dataBuffer
+
+      console.log @file
+      @dataBuffer = ""
+#    downloadURI(dataBuffer)
+#    dataBuffer = ""
+    else
+      @dataBuffer += event.data
+
+  downloadFile: ->
+    link = document.createElement("a")
+    link.download = @file.name
+    link.href = @dataBuffer
+    link.click()
+
+class FTPObserver
+  constructor: (@websocket) ->
+    websocket.bind "ftp_hello", @onFTPHello
+    websocket.bind "ftp_ok", @onFTPOk
+
+  onFTPHello: (data) =>
+    console.log "onFTPHello"
+    return if data.target isnt @getOwnClientId()
+    @target_client_id = data.sender
+    @receiver = new FileReceiver @target_client_id, @websocket
+    @sendWebSocketMessage "ftp_ok", ""
+
+  onFTPOk: (data) =>
+    console.log "onFTPOk"
+    return if data.target isnt @getOwnClientId()
+    @sender = new FileSender @target_client_id, @waitingFile, @websocket
+
+  getOwnClientId: ->
+    console.log "getOwnClientId"
+    @websocket._conn.connection_id
+
+  sendWebSocketMessage: (event_name, body) ->
+    console.log "sendWebSocketMessage"
+    message = sender: @getOwnClientId(), target: @target_client_id, body: body
+    @websocket.trigger event_name, message
+
+  sendFile: (target_id, file) ->
+    console.log "sendFile"
+    @target_client_id = target_id
+    @waitingFile = file
+    @sendWebSocketMessage "ftp_hello", ""
+
+#    @sender = new FileSender target_id, file, @websocket
+
+
+
+window.FileSender = FileSender
+window.FileReceiver = FileReceiver
+window.FTPObserver = FTPObserver
+
 $ ->
 #  ws = new WebSocketRails "ws://localhost:3000/websocket"
 #  connection = new RTCPeerConnection(peerConnectionConfig, peerDataConnectionConfig)
@@ -160,6 +400,25 @@ $ ->
 ##          openChannel()
 #  openChannel = ->
 
+  websocket = new WebSocketRails "ws://"+location.host+"/websocket"
+  websocket.bind "update_users", (users) ->
+    console.log users
+    $("#user_list").empty()
+    for client_id, user of users
+      continue if client_id is websocket._conn.connection_id
+      user_icon = $("<li>").addClass("user_icon").append(
+        $("<img>").attr("src", "http://www.gravatar.com/avatar/646a01801bac1886ddf86aee2de913ed")
+      ).append(
+        $("<p>").text(user.name)
+      ).data("user", user)
+      user_icon.bind "dradenter", cancelEvent
+      user_icon.bind "dragover", overEvent
+      user_icon.bind "dragleave", leaveEvent
+      user_icon.bind "drop", dropEvent
+      $("#user_list").append user_icon
+  window.ws = websocket
+  observer = new FTPObserver websocket
+
   downloadURI = (uri) ->
     link = document.createElement("a")
     link.download = "download"
@@ -212,7 +471,10 @@ $ ->
     console.log file
     sendFile file
 
-  element = $ "#droppable_file"
+#  element = $ "#droppable_file"
+  element = $ ".user_icon"
+
+  pollingFile = null
 
   if !window.FileReader
     alert "File API not supported."
@@ -224,18 +486,22 @@ $ ->
     return false
 
   overEvent = (event) ->
-    element.addClass "hover"
+    $(@).addClass "hover"
     cancelEvent event
 
   leaveEvent = (event) ->
-    element.removeClass "hover"
+    $(@).removeClass "hover"
     cancelEvent event
 
   dropEvent = (event) ->
     element.removeClass "hover"
     file = event.originalEvent.dataTransfer.files[0];
-    openFile file
-#    console.log file
+#    console.log $(@).data("user").client_id
+    observer.sendFile $(@).data("user").client_id, file
+    console.log file
+#    pollingFile = file
+#    websocket.trigger "ftp_hello", $(@).data("user").client_id
+#    openFile file
     cancelEvent event
     return false
 

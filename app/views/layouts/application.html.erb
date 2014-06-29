@@ -5,23 +5,29 @@
   <%= stylesheet_link_tag    "application", media: "all", "data-turbolinks-track" => true %>
   <%= javascript_include_tag "application", "data-turbolinks-track" => true %>
   <%= csrf_meta_tags %>
-  <style>
-      #droppable_file {
-          border: gray solid 1em;
-          padding: 2em;
-      }
-      #droppable_file.hover {
-          background-color: indianred;
-      }
-  </style>
 </head>
 <body>
 
 <div>
+  <div id="background">
+    <div id="loader_outer">
+      <div id="loader"></div>
+    </div>
+    <div id="user_self" class="user_icon">
+      <img src="http://www.gravatar.com/avatar/646a01801bac1886ddf86aee2de913ed" alt="">
+      <p>なまえ</p>
+    </div>
+  </div>
+  <ul id="user_list">
+  </ul>
+  <%#
   <div id="droppable_file">
     ここにファイルをドラッグ
   </div>
   <input type="file" id="selectable_file">
+  <button id="sender_button">sender</button>
+  <button id="receiver_button">receiver</button>
+  %>
 
   <%#
   <textarea id="sender_local" rows="20" cols="20"></textarea>
@@ -36,8 +42,6 @@
 
   <button id="channel_button">channel send</button>
   %>
-  <button id="sender_button">sender</button>
-  <button id="receiver_button">receiver</button>
 </div>
 
 </body>

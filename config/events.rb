@@ -24,4 +24,12 @@ WebsocketRails::EventMap.describe do
   subscribe :send_private_message, :to => ChatController, :with_method => :send_private_message
   subscribe :fire, :to => ChatController, :with_method => :fire
   subscribe :test, :to => ChatController, :with_method => :test
+
+  subscribe :ftp_hello, :to => ChatController, :with_method => :wall
+  subscribe :ftp_ok, :to => ChatController, :with_method => :wall
+  subscribe :update_fileinfo, :to => ChatController, :with_method => :wall
+  subscribe :update_sender_candidate, :to => ChatController, :with_method => :wall
+  subscribe :update_sender_offer, :to => ChatController, :with_method => :wall
+  subscribe :update_receiver_candidate, :to => ChatController, :with_method => :wall
+  subscribe :update_receiver_answer, :to => ChatController, :with_method => :wall
 end

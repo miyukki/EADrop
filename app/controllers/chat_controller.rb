@@ -1,20 +1,34 @@
 class ChatController < WebsocketRails::BaseController
+  class User
+    def initialize(client_id, name)
+      @client_id = client_id
+      @name = name
+    end
+  end
+
   def initialize_session
     # controller_store[:count] = 0
+    controller_store[:users] = {}
     controller_store[:connections] = {}
     logger.debug "initialize_session"
   end
 
   def client_connected
     logger.debug "connected!: " + client_id + ":" + connection.inspect
+
+    user = User.new client_id, client_id
+    logger.debug user.inspect
+
+    controller_store[:users].store client_id, user
     controller_store[:connections].store client_id, connection
-    # controller_store[:count] = controller_store[:count] + 1
+    broadcast_message :update_users, controller_store[:users]
   end
 
   def client_disconnected
     logger.debug "disconnected!: " + client_id + ":" + connection.inspect
+    controller_store[:users].delete client_id
     controller_store[:connections].delete client_id
-    # controller_store[:count] = controller_store[:count] - 1
+    broadcast_message :update_users, controller_store[:users]
   end
 
   def send_private_message
@@ -27,8 +41,9 @@ class ChatController < WebsocketRails::BaseController
     # send_message :private_message, message, :connection => controller_store[message[:target]]
   end
 
-  def fire
-    broadcast_message :water, message
+  def wall
+    broadcast_message event.name.to_s, message
+    logger.debug event.name.to_s + " > " + message.inspect
   end
 
   def test
