@@ -11,5 +11,17 @@ WebsocketRails::EventMap.describe do
   #     subscribe :new, :to => ProductController, :with_method => :new_product
   #   end
   # The above will handle an event triggered on the client like `product.new`.
+  # Rails::Rack::Logger
+
+  # The :client_connected method is fired automatically when a new client connects
+  subscribe :client_connected, :to => ChatController, :with_method => :client_connected
+  # The :client_disconnected method is fired automatically when a client disconnects
+  subscribe :client_disconnected, :to => ChatController, :with_method => :client_disconnected
+
+  namespace :websocket_rails do
+    subscribe :subscribe_private, :to => AuthorizationController, :with_method => :authorize_channels
+  end
+  subscribe :send_private_message, :to => ChatController, :with_method => :send_private_message
   subscribe :fire, :to => ChatController, :with_method => :fire
+  subscribe :test, :to => ChatController, :with_method => :test
 end
