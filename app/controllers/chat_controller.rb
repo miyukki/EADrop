@@ -1,8 +1,8 @@
 class ChatController < WebsocketRails::BaseController
   class User
-    def initialize(client_id, name)
+    def initialize(client_id)
       @client_id = client_id
-      @name = name
+      @name = ["ワニ", "アリクイ", "アルマジロ", "アホロートル", "アナグマ", "コウモリ", "ビーバー", "水牛", "ラクダ", "カメレオン", "チーター", "シマリス", "チンチラ", "チュパカブラ", "鵜", "コヨーテ", "カラス", "ディンゴ", "恐竜", "イルカ", "アヒル", "ゾウ", "キツネ", "カエル", "キリン", "リス", "グリズリー", "ハリネズミ", "カバ", "ハイエナ", "ジャッカル", "IBEX", "イフリート", "イグアナ", "コアラ", "クラーケン", "キツネザル", "ヒョウ", "ライガー", "ラマ", "マナティー", "ミンク", "サル", "イッカク", "ニャン猫", "オランウータン", "カワウソ", "パンダ", "ペンギン", "カモノハシ", "パイソン", "カボチャ", "ウサギ", "タヌキ", "サイ", "ヒツジ", "トガリネズミ", "スカンク", "スローロリス", "リス", "亀", "セイウチ", "オオカミ", "クズリ", "ウォンバット"].sample
     end
   end
 
@@ -16,7 +16,7 @@ class ChatController < WebsocketRails::BaseController
   def client_connected
     logger.debug "connected!: " + client_id + ":" + connection.inspect
 
-    user = User.new client_id, client_id
+    user = User.new client_id
     logger.debug user.inspect
 
     controller_store[:users].store client_id, user

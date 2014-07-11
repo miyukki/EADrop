@@ -112,6 +112,11 @@ window.FileTransfer = FileTransfer
 # update_sender_offer
 class FileSender
   constructor: (@target_client_id, @file, @websocket) ->
+    @file_charSlice = 10000
+    @file_data = null
+    @file_dataSent = 0
+    ##
+
     @websocket.bind "update_receiver_candidate", @updateReceiverCandidate
     @websocket.bind "update_receiver_answer", @updateReceiverAnswer
     @sendWebSocketMessage "update_fileinfo", file
@@ -138,6 +143,7 @@ class FileSender
     @connection.setRemoteDescription new RTCSessionDescription(data.body)
 
   attachDataChannel: (@channel) =>
+    window.dc = @channel
     @channel.onopen = @onRTCChannelOpen
     @channel.onmessage = @onRTCChannelMessage
 
@@ -166,46 +172,61 @@ class FileSender
 
   onRTCChannelMessage: (message) =>
     console.log "onRTCChannelMessage"
-
-#  setRTCMessageListener: (listener) ->
-#    @rtcMessageListener = listener
+    @sendFilePart()
 
   sendRTCMessage: (event) ->
     @channel.send event
 
   ## FILES
-  sendFile: =>
+
+  sendFile: ->
     reader = new FileReader
     reader.onload = (event) =>
-      delay = 10
-      charSlice = 10000
-      terminator = "\n"
-      data = event.target.result
-      dataSent = 0
-      intervalID = 0
-
-      if not $('#loader_outer').is(':visible')
-        $("#loader_outer").fadeIn(500)
-
-      intervalID = setInterval =>
-        slideEndIndex = dataSent + charSlice
-        if slideEndIndex > data.length
-          slideEndIndex = data.length
-        @sendRTCMessage data.slice(dataSent, slideEndIndex)
-        dataSent = slideEndIndex
-
-        percent = dataSent/data.length
-        $("#loader").css("width", percent + "%")
-
-        if dataSent + 1 >= data.length
-          $("#loader_outer").fadeOut(1000)
-          console.log "送信完了"
-          dataSent = 0
-          dataBuffer = ""
-          @sendRTCMessage "\n"
-          clearInterval intervalID
-      , delay
+      @file_data = event.target.result
+#      console.log @file_data
+#      console.log Base64toBlob @file_data
+#      return
+      $("#loader_outer").fadeIn(500) if not $('#loader_outer').is(':visible')
+#      timerId = setInterval =>
+#        @sendFilePart()
+#        clearInterval timerId if @file_dataSent >= @file_data.length
+#      , 3
+      @sendFilePart()
     reader.readAsDataURL @file
+
+  sendFilePart: ->
+#    sendLength = @file_charSlice
+#    sendLength = @file_data.length - @file_dataSent
+#    @sendRTCMessage @file_data.substr @file_dataSent, sendLength
+#    sendLength = if @file_data.length - @file_dataSent > @file_charSlice then @file_charSlice : @file_data.length - @file_dataSent
+    if @file_dataSent >= @file_data.length
+      $("#loader_outer").fadeOut(1000)
+      console.log "送信完了"
+      @sendRTCMessage "\n"
+      return
+
+    slideEndIndex = @file_dataSent + @file_charSlice
+    if slideEndIndex > @file_data.length
+      slideEndIndex = @file_data.length
+    @sendRTCMessage @file_data.slice(@file_dataSent, slideEndIndex)
+    @file_dataSent = slideEndIndex
+
+    percent = @file_dataSent/@file_data.length
+    $("#loader").css("width", percent*100 + "%")
+
+#    if @file_dataSent >= @file_data.length
+#      $("#loader_outer").fadeOut(1000)
+#      console.log "送信完了"
+#      @sendRTCMessage "\n"
+#      return
+
+#    if @file_dataSent + 1 >= @file_data.length
+#      $("#loader_outer").fadeOut(1000)
+#      console.log "送信完了"
+##      dataSent = 0
+##      dataBuffer = ""
+#      @sendRTCMessage "\n"
+#      clearInterval intervalID
 
 #
 # FileReceiver
@@ -273,35 +294,45 @@ class FileReceiver
   ## FILES
   receiveFile: (event) =>
     @dataBuffer ?= ""
+    @dataBuffers ?= []
 
     percent = @dataBuffer.length/(@file.size * 1.33)
     if not $('#loader_outer').is(':visible')
       $("#loader_outer").fadeIn(500)
-    $("#loader").css("width", percent + "%")
+    $("#loader").css("width", percent*100 + "%")
 
+#    console.log event.data, typeof  event.data
     if event.data == "\n"
       console.log "おわり"
-      console.log @dataBuffer
-
+#      @dataBuffer = @dataBuffers.join ""
+#      console.log @dataBuffer
+      window.dataBuffer = @dataBuffer
+      Base64toBlob @dataBuffer
       $("#loader_outer").fadeOut(1000)
+#      console.log @dataBuffer
 
       if @isDownloadMode
-        @downloadFile()
+#        @downloadFile()
+        DonwloadBlob Base64toBlob(@dataBuffer), @file
       else
         window.open @dataBuffer
 
       console.log @file
-      @dataBuffer = ""
+#      @dataBuffer = ""
+#      @dataBuffers = []
 #    downloadURI(dataBuffer)
 #    dataBuffer = ""
-    else
-      @dataBuffer += event.data
+      return
+    @dataBuffer += event.data
+    @sendRTCMessage "-"
 
   downloadFile: ->
-    link = document.createElement("a")
-    link.download = @file.name
-    link.href = @dataBuffer
-    link.click()
+    @dataBuffer = @dataBuffer.replace /^data:.*?;/, "data:application/octet-stream;"
+    location.href = @dataBuffer
+#    link = document.createElement("a")
+#    link.download = @file.name
+#    link.href = @dataBuffer
+#    link.click()
 
 class FTPObserver
   constructor: (@websocket) ->
@@ -309,15 +340,15 @@ class FTPObserver
     websocket.bind "ftp_ok", @onFTPOk
 
   onFTPHello: (data) =>
-    console.log "onFTPHello"
     return if data.target isnt @getOwnClientId()
+    console.log "onFTPHello"
     @target_client_id = data.sender
     @receiver = new FileReceiver @target_client_id, @websocket
     @sendWebSocketMessage "ftp_ok", ""
 
   onFTPOk: (data) =>
-    console.log "onFTPOk"
     return if data.target isnt @getOwnClientId()
+    console.log "onFTPOk"
     @sender = new FileSender @target_client_id, @waitingFile, @websocket
 
   getOwnClientId: ->
@@ -405,9 +436,11 @@ $ ->
     console.log users
     $("#user_list").empty()
     for client_id, user of users
-      continue if client_id is websocket._conn.connection_id
+      if client_id is websocket._conn.connection_id
+        $("#user_self > p").text(user.name)
+        continue
       user_icon = $("<li>").addClass("user_icon").append(
-        $("<img>").attr("src", "http://www.gravatar.com/avatar/646a01801bac1886ddf86aee2de913ed")
+        $("<img>").attr("src", "http://www.gravatar.com/avatar/HASH")
       ).append(
         $("<p>").text(user.name)
       ).data("user", user)
@@ -494,7 +527,7 @@ $ ->
     cancelEvent event
 
   dropEvent = (event) ->
-    element.removeClass "hover"
+    $(@).removeClass "hover"
     file = event.originalEvent.dataTransfer.files[0];
 #    console.log $(@).data("user").client_id
     observer.sendFile $(@).data("user").client_id, file

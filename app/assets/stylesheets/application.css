@@ -36,6 +36,7 @@
     height: 2px;
     /*background-color: blue;*/
     background-color: #3AA0DA;
+    box-shadow: #3AA0DA 0 0 3px;
 }
 
 #user_self {
@@ -70,6 +71,7 @@
     box-shadow: rgba(0, 0, 0, 0.2) 0 0 3px;
 }
 .user_icon > p {
+    white-space: nowrap;
     text-align: center;
     font-size: 14px;
     /*color: rgba(160,160,160, 1);*/

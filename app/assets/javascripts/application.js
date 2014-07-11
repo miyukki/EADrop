@@ -32,6 +32,63 @@
  * limitations under the License.
  */
 
+function onInitFs(fs, blob, options) {
+
+    fs.root.getFile(options.name, {create: true}, function(fileEntry) {
+
+        // Create a FileWriter object for our FileEntry (log.txt).
+        fileEntry.createWriter(function(fileWriter) {
+
+            fileWriter.onwriteend = function(e) {
+                console.log('Write completed.');
+            };
+
+            fileWriter.onerror = function(e) {
+                console.log('Write failed: ' + e.toString());
+            };
+
+            fileWriter.write(blob);
+
+//            console.log(fileEntry.toURL());
+
+            var link = document.createElement("a");
+            link.download = options.name
+            link.href = fileEntry.toURL();
+            link.click();
+
+        }, errorHandler);
+
+    }, errorHandler);
+
+}
+
+errorHandler = function(error) {
+    console.log(error);
+}
+
+function Base64toBlob(_base64)
+{
+    var i;
+    var tmp = _base64.split(',');
+    var data = atob(tmp[1]);
+    var mime = tmp[0].split(':')[1].split(';')[0];
+
+    //var buff = new ArrayBuffer(data.length);
+    //var arr = new Uint8Array(buff);
+    var arr = new Uint8Array(data.length);
+    for (i = 0; i < data.length; i++) {arr[i] = data.charCodeAt(i);}
+    var blob = new Blob([arr], { type: mime });
+    return blob;
+}
+
+window.requestFileSystem = window.requestFileSystem || window.webkitRequestFileSystem;
+
+function DonwloadBlob(blob, options) {
+    options.size = 1024 * 1024 * 1024
+    window.requestFileSystem(window.TEMPORARY, options.size + 100, function(fs) {
+        onInitFs(fs, blob, options);
+    }, errorHandler);
+}
 
 context = new (window.AudioContext || window.webkitAudioContext)();
 navigator.getUserMedia = (navigator.getUserMedia ||
