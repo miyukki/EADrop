@@ -21,90 +21,6 @@ peerDataConnectionConfig =
 #    RtpDataChannels: true
   ]
 
-class FileTransfer
-  constructor: (@file, isSender) ->
-    @source = if isSender then "sender" else "receiver"
-    @channel = null
-
-    @websocket = new WebSocketRails "ws://"+location.host+"/websocket"
-    @websocket.bind "water", @webSocketListener
-
-    @connection = new RTCPeerConnection peerConnectionConfig, peerDataConnectionConfig
-    @connection.onnegotiationneeded = ->
-      console.log "ｷﾀ━━━━(ﾟ∀ﾟ)━━━━!!"
-    @connection.onicecandidate = (event) =>
-      if event.candidate
-        @sendWebSocketMessage "candidate", event.candidate
-    @connection.ondatachannel = (event) =>
-      console.log event
-      @attachDataChannel event.channel
-
-#    @ = "hoge"
-    @initializeSender() if isSender
-
-  initializeSender: ->
-    @attachDataChannel @connection.createDataChannel "channel", reliable: true
-#    @connection.createOffer @createdOffer
-    @connection.createOffer (description) =>
-      console.log "OnCreateOffer 1"
-      @connection.setLocalDescription description, =>
-        console.log "OnSetLocalDescription 2"
-        @sendWebSocketMessage "description", description
-        $("#sender_local").val JSON.stringify(description)
-
-#  createdOffer: (description) ->
-#    console.log "OnCreateOffer 1"
-#    @connection.setLocalDescription desctipion
-#    @sendWebSocketMessage "description", description
-
-#  createdAnswer: (answer) ->
-
-  getTarget: ->
-    if @source == "receiver" then "sender" else "receiver"
-
-  attachDataChannel: (@channel) ->
-    @channel.onopen = ->
-      console.log "onopen"
-    @channel.onmessage = (message) =>
-#      console.log "ぴーかー"
-      if @rtcMessageListener?
-        @rtcMessageListener(message)
-#      console.log "onmessage"
-#      console.log message
-    console.log "データちゃんねる来ちゃった。。。a"
-
-  sendWebSocketMessage: (type, body) ->
-    message = target: @getTarget(), type: type, body: body
-    @websocket.trigger "fire", message
-
-  webSocketListener: (data) =>
-    console.log data.target, @source
-    if data.target != @source
-      return
-    console.log data
-
-    # candidateが送られてきた場合
-    if data.type == "candidate"
-      @connection.addIceCandidate new RTCIceCandidate(data.body)
-
-    # descriptionが送られてきた場合
-    if data.type == "description"
-      @connection.setRemoteDescription new RTCSessionDescription(data.body)
-      if data.target == "receiver"
-        @connection.createAnswer (answer) =>
-          @connection.setLocalDescription answer, =>
-            @sendWebSocketMessage "description", answer
-
-  setRTCMessageListener: (listener) ->
-    @rtcMessageListener = listener
-
-  sendRTCMessage: (message) ->
-    @channel.send message
-
-window.FileTransfer = FileTransfer
-
-
-
 #
 # FileSender
 #
@@ -183,22 +99,11 @@ class FileSender
     reader = new FileReader
     reader.onload = (event) =>
       @file_data = event.target.result
-#      console.log @file_data
-#      console.log Base64toBlob @file_data
-#      return
       $("#loader_outer").fadeIn(500) if not $('#loader_outer').is(':visible')
-#      timerId = setInterval =>
-#        @sendFilePart()
-#        clearInterval timerId if @file_dataSent >= @file_data.length
-#      , 3
       @sendFilePart()
     reader.readAsDataURL @file
 
   sendFilePart: ->
-#    sendLength = @file_charSlice
-#    sendLength = @file_data.length - @file_dataSent
-#    @sendRTCMessage @file_data.substr @file_dataSent, sendLength
-#    sendLength = if @file_data.length - @file_dataSent > @file_charSlice then @file_charSlice : @file_data.length - @file_dataSent
     if @file_dataSent >= @file_data.length
       $("#loader_outer").fadeOut(1000)
       console.log "送信完了"
@@ -213,20 +118,6 @@ class FileSender
 
     percent = @file_dataSent/@file_data.length
     $("#loader").css("width", percent*100 + "%")
-
-#    if @file_dataSent >= @file_data.length
-#      $("#loader_outer").fadeOut(1000)
-#      console.log "送信完了"
-#      @sendRTCMessage "\n"
-#      return
-
-#    if @file_dataSent + 1 >= @file_data.length
-#      $("#loader_outer").fadeOut(1000)
-#      console.log "送信完了"
-##      dataSent = 0
-##      dataBuffer = ""
-#      @sendRTCMessage "\n"
-#      clearInterval intervalID
 
 #
 # FileReceiver
@@ -366,81 +257,22 @@ class FTPObserver
     @waitingFile = file
     @sendWebSocketMessage "ftp_hello", ""
 
-#    @sender = new FileSender target_id, file, @websocket
-
-
-
 window.FileSender = FileSender
 window.FileReceiver = FileReceiver
 window.FTPObserver = FTPObserver
 
 $ ->
-#  ws = new WebSocketRails "ws://localhost:3000/websocket"
-#  connection = new RTCPeerConnection(peerConnectionConfig, peerDataConnectionConfig)
-#  channel = null
-#  candidate = []
-#
-#  createChannel = (c) ->
-#    channel = c
-#    channel.onopen = ->
-#      console.log "onopen"
-#    channel.onmessage = ->
-#      console.log "onmessage"
-#    connection.onicecandidate = (event) ->
-#      console.log "おっすおら悟空"
-#      if event.candidate
-#        candidate.push event.candidate
-#        $("#candidate_text").val(JSON.stringify(candidate))
-##        connection.addIceCandidate event.candidate
-#
-##  connection.onnegotiationneeded = ->
-##    console.log "ｷﾀ━━━━(ﾟ∀ﾟ)━━━━!!"
-#
-#  connection.onsignalingstatechange = (event) ->
-#    console.log event
-#  connection.ondatachannel = (event) ->
-#    createChannel(event.channel)
-#    console.log event.channel
-#    console.log "データちゃんねる来ちゃった。。。"
-#
-#  $("#candidate_button").click ->
-#    a = JSON.parse $("#candidate_text").val()
-#    connection.addIceCandidate new RTCIceCandidate c for c in candidate
-#
-#  $("#channel_button").click ->
-#    channel.send "hello"
-#
-#  $("#sender_button1").click ->
-#    createChannel(connection.createDataChannel "channel", reliable: true)
-#    connection.createOffer (description) ->
-#      console.log "OnCreateOffer"
-#      connection.setLocalDescription description, ->
-#        console.log "OnSetLocalDescription"
-#        $("#sender_local").val JSON.stringify(description)
-#  $("#sender_button2").click ->
-#    remoteDescription = new RTCSessionDescription JSON.parse($("#sender_remote").val())
-#    connection.setRemoteDescription remoteDescription
-##    openChannel()
-#
-#  $("#receiver_button").click ->
-#    remoteDescription = new RTCSessionDescription JSON.parse($("#receiver_remote").val())
-#    connection.setRemoteDescription remoteDescription
-#    connection.createAnswer (answer) ->
-#      connection.setLocalDescription answer, ->
-#        $("#receiver_local").val JSON.stringify(answer)
-##          openChannel()
-#  openChannel = ->
-
   websocket = new WebSocketRails "ws://"+location.host+"/websocket"
   websocket.bind "update_users", (users) ->
-    console.log users
     $("#user_list").empty()
     for client_id, user of users
       if client_id is websocket._conn.connection_id
+        $("#user_self > img").attr("src", "http://www.gravatar.com/avatar/"+user.client_id+"?d=retro")
         $("#user_self > p").text(user.name)
         continue
+      console.log user
       user_icon = $("<li>").addClass("user_icon").append(
-        $("<img>").attr("src", "http://www.gravatar.com/avatar/HASH")
+        $("<img>").attr("src", "http://www.gravatar.com/avatar/"+user.client_id+"?d=retro")
       ).append(
         $("<p>").text(user.name)
       ).data("user", user)
@@ -459,52 +291,6 @@ $ ->
     link.click()
 
   dataBuffer = ""
-  session = null
-  $("#sender_button").click ->
-    session = new FileTransfer null, true
-  $("#receiver_button").click ->
-    session = new FileTransfer null, false
-    session.setRTCMessageListener (event) ->
-#      console.log "ぴーかー"
-      if event.data == "\n"
-        console.log "おわり"
-        console.log dataBuffer
-#        window.open dataBuffer
-        downloadURI(dataBuffer)
-        dataBuffer = ""
-      else
-        dataBuffer += event.data
-
-  sendFile = (file) ->
-    reader = new FileReader
-    reader.onload = (event) ->
-      delay = 10;
-      charSlice = 10000;
-      terminator = "\n";
-      data = event.target.result;
-      dataSent = 0;
-      intervalID = 0;
-
-      intervalID = setInterval ->
-        slideEndIndex = dataSent + charSlice
-        if slideEndIndex > data.length
-          slideEndIndex = data.length
-        session.sendRTCMessage data.slice(dataSent, slideEndIndex)
-        dataSent = slideEndIndex
-        if dataSent + 1 >= data.length
-          console.log "送信完了"
-          dataSent = 0
-          dataBuffer = ""
-          session.sendRTCMessage "\n"
-          clearInterval intervalID
-      , delay
-    reader.readAsDataURL file
-
-  openFile = (file) ->
-    console.log file
-    sendFile file
-
-#  element = $ "#droppable_file"
   element = $ ".user_icon"
 
   pollingFile = null
@@ -529,12 +315,8 @@ $ ->
   dropEvent = (event) ->
     $(@).removeClass "hover"
     file = event.originalEvent.dataTransfer.files[0];
-#    console.log $(@).data("user").client_id
     observer.sendFile $(@).data("user").client_id, file
     console.log file
-#    pollingFile = file
-#    websocket.trigger "ftp_hello", $(@).data("user").client_id
-#    openFile file
     cancelEvent event
     return false
 
@@ -547,5 +329,4 @@ $ ->
   selectEvent = (event) ->
     file = event.target.files[0]
     openFile file
-#    console.log event.target.files[0]
   element2.bind "change", selectEvent
