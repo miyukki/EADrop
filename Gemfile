@@ -39,3 +39,8 @@ gem 'websocket-rails'
 
 # Use debugger
 # gem 'debugger', group: [:development, :test]
+
+group :production do
+  gem 'therubyracer'
+  gem 'unicorn'
+end
