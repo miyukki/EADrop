@@ -14,12 +14,12 @@ WebsocketRails.setup do |config|
   # Change to true to enable standalone server mode
   # Start the standalone server with rake websocket_rails:start_server
   # * Requires Redis
-  config.standalone = false
+  # config.standalone = false
 
   # Change to true to enable channel synchronization between
   # multiple server instances.
   # * Requires Redis.
-  config.synchronize = false
+  # config.synchronize = false
 
   # Prevent Thin from daemonizing (default is true)
   # config.daemonize = false
@@ -59,7 +59,12 @@ WebsocketRails.setup do |config|
   # List here the origin domains allowed to perform the request.
   # config.allowed_origins = ['http://localhost:3000']
   if Rails.env.production? then
-    config.standalone = ture
+    config.standalone = true
     config.standalone_port = 3001
+    config.redis_options = {:host => '111.171.212.106', :port => '20669', :password => 'lGRXbo51aUrKPDyh'}
+    config.synchronize = false
+  else
+    config.standalone = false
+    config.synchronize = false
   end
 end
