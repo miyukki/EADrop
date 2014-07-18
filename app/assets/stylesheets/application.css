@@ -61,9 +61,12 @@
     left: 512.5px;
 }
 #user_list {
-    padding: 20px;
+    /*padding: 20px;*/
     /*text-align:center;*/
     /*text-align: ;*/
+    position: fixed;
+    top: 20%;
+    left: 20%;
 }
 #user_list > * {
     width: 75px;
